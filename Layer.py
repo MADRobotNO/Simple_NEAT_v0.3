@@ -9,3 +9,6 @@ class Layer:
         self.layer_id = layer_id
         self.layer_type = layer_type
         self.nodes = []
+
+    def layer_type_to_string(self):
+        return self.LAYER_TYPES[self.layer_type]
