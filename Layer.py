@@ -12,3 +12,9 @@ class Layer:
 
     def layer_type_to_string(self):
         return self.LAYER_TYPES[self.layer_type]
+
+    def add_node(self, node):
+        self.nodes.append(node)
+
+    def get_number_of_nodes(self):
+        return len(self.nodes)

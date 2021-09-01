@@ -24,6 +24,9 @@ class Innovations:
     def get_last_innovation_id(self):
         return len(self.list_of_innovations)-1
 
+    def get_number_of_innovations(self):
+        return len(self.list_of_innovations)
+
     def print_list_of_innovations(self):
         for innovation_index, innovation in enumerate(self.list_of_innovations):
             self.__print_innovation(innovation_index, innovation)
