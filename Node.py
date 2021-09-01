@@ -13,3 +13,7 @@ class Node:
 
     def node_type_to_string(self):
         return self.NODE_TYPES[self.node_type]
+
+    def __str__(self):
+        return "Node ID: " + str(self.node_id) + ", node type: " + self.NODE_TYPES[self.node_type] \
+               + ", node layer ID: " + str(self.node_layer_id)

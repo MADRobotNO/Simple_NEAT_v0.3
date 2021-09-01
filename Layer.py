@@ -16,5 +16,15 @@ class Layer:
     def add_node(self, node):
         self.nodes.append(node)
 
+    def remove_node(self, node):
+        self.nodes.remove(node)
+
     def get_number_of_nodes(self):
         return len(self.nodes)
+
+    def __str__(self):
+        nodes_in_layer = ""
+        for node in self.nodes:
+            nodes_in_layer += str(node.node_id) + ", "
+        return "Layer ID: " + str(self.layer_id) + ", layer type: " + self.LAYER_TYPES[self.layer_type] \
+               + ", nodes in layer: " + nodes_in_layer
