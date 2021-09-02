@@ -29,6 +29,32 @@ class Model:
     def get_latest_connection_id(self):
         return len(self.connections)
 
+    def get_layer_by_node(self, node):
+        for layer in self.layers:
+            if node in layer.nodes:
+                return layer
+
+    def get_all_connections_by_node(self, node):
+        node_connections = []
+        for connection in self.connections:
+            if connection.from_node_id == node.node_id or connection.to_node_id == node.node_id:
+                node_connections.append(connection)
+        return node_connections
+
+    def get_connection_by_from_to_nodes(self, from_node, to_node):
+        for connection in self.connections:
+            if connection.from_node_id == from_node.node_id and connection.to_node_id == to_node.node_id:
+                return connection
+        return None
+
+    def remove_node(self, node):
+        layer = self.get_layer_by_node(node)
+        layer.remove_node(node)
+        self.nodes.remove(node)
+        connections = self.get_all_connections_by_node(node)
+        for connection in connections:
+            connection.enabled = False
+
     def initialize_model(self):
         # input layer
         input_layer = Layer(self.get_latest_layer_id(), Layer.INPUT_LAYER_TYPE)
@@ -78,6 +104,34 @@ class Model:
 
     def add_layer(self, layer):
         self.layers.append(layer)
+
+    def get_connection_by_id(self, connection_id):
+        for connection in self.connections:
+            if connection.connection_id == connection_id:
+                return connection
+
+    def get_layer_by_id(self, layer_id):
+        for layer in self.layers:
+            if layer.layer_id == layer_id:
+                return layer
+
+    def get_node_by_id(self, node_id):
+        for node in self.nodes:
+            if node.node_id == node_id:
+                return node
+
+    def get_layers_array_for_drawing(self):
+        layers_array = []
+        for layer in self.layers:
+            layers_array.append(layer.get_number_of_nodes())
+        return layers_array
+
+    def move_node_to_layer(self, node, layer):
+        if layer.layer_type != Layer.HIDDEN_LAYER_TYPE or node.node_type != Node.HIDDEN_NODE_TYPE:
+            return
+        current_layer = self.get_layer_by_id(node.node_layer_id)
+        current_layer.remove_node(node)
+        layer.add_node(node)
 
     def __str__(self):
         return_string = ""

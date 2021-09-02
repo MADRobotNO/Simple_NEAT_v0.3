@@ -22,6 +22,14 @@ class Layer:
     def get_number_of_nodes(self):
         return len(self.nodes)
 
+    def get_layer_node_by_id(self, node_id):
+        for node in self.nodes:
+            if node.node_id == node_id:
+                return node
+
+    def get_layer_nodes(self):
+        return self.nodes
+
     def __str__(self):
         nodes_in_layer = ""
         for node in self.nodes:
