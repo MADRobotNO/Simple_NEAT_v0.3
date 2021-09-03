@@ -10,7 +10,7 @@ class Innovations:
             cls.instance = super().__new__(cls)
         return cls.instance
 
-    def get_innovation_id_by_in_out_nodes(self, in_node, out_node):
+    def get_innovation_id_by_in_out_node_ids(self, in_node, out_node):
         for innovation_index, innovation in enumerate(self.list_of_innovations):
             if innovation[0] == in_node and innovation[1] == out_node:
                 return innovation_index

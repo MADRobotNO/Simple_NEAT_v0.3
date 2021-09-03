@@ -91,13 +91,29 @@ class Model:
                 next_layer = self.layers[layer_index + 1]
                 for next_nodes in next_layer.nodes:
                     to_node_id = next_nodes.node_id
-                    innovation_id = self.innovations.get_innovation_id_by_in_out_nodes(from_node_id, to_node_id)
+                    innovation_id = self.innovations.get_innovation_id_by_in_out_node_ids(from_node_id, to_node_id)
                     connection = Connection(self.get_latest_connection_id(), innovation_id, from_node_id, to_node_id)
                     self.add_connection(connection)
 
-    def add_node(self, node, layer):
+    def add_node(self, node, layer, add_connections=False):
         self.nodes.append(node)
         layer.add_node(node)
+        if add_connections:
+            layer_id = layer.layer_id
+            previous_layer = self.get_layer_by_id(layer_id-1)
+            for from_node in previous_layer.nodes:
+                connection = Connection(self.get_latest_connection_id(),
+                                        self.innovations.get_innovation_id_by_in_out_node_ids(from_node.node_id,
+                                                                                              node.node_id),
+                                        from_node.node_id, node.node_id)
+                self.add_connection(connection)
+            next_layer = self.get_layer_by_id(layer.layer_id+1)
+            for to_node in next_layer.nodes:
+                connection = Connection(self.get_latest_connection_id(),
+                                        self.innovations.get_innovation_id_by_in_out_node_ids(node.node_id,
+                                                                                              to_node.node_id),
+                                        node.node_id, to_node.node_id)
+                self.add_connection(connection)
 
     def add_connection(self, connection):
         self.connections.append(connection)
@@ -136,6 +152,7 @@ class Model:
     def __str__(self):
         return_string = ""
         return_string += "Model ID: " + str(self.model_id) + "\n"
+        return_string += "Species ID: " + str(self.species_id) + "\n"
 
         return_string += "Nodes: \n"
         for node in self.nodes:

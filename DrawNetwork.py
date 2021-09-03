@@ -80,8 +80,8 @@ def draw_neural_net(left, right, bottom, top, model, show_disabled_connections=T
                     line.set_color("blue")
                 elif show_disabled_connections:
                     line.set_color("grey")
-
+                line.set_linewidth(abs(connection.weight)+0.6)
                 ax.add_artist(line)
 
     fig.show()
-    fig.savefig('test.png')
+    fig.savefig('network_graph.png')
