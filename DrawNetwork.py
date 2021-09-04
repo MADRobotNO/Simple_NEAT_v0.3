@@ -1,6 +1,9 @@
+import math
+from Node import Node
+
 import matplotlib.pyplot as plt
 
-def draw_neural_net(left, right, bottom, top, model, show_disabled_connections=True):
+def draw_model(model, show_disabled_connections=True):
     '''
     Draw a neural network cartoon using matplotilb.
 
@@ -16,6 +19,11 @@ def draw_neural_net(left, right, bottom, top, model, show_disabled_connections=T
         - model : Model class
             The model of the network
     '''
+
+    left = .07
+    right = .93
+    bottom = .05
+    top = .95
 
     fig = plt.figure(figsize=(12, 12))
 
@@ -45,9 +53,13 @@ def draw_neural_net(left, right, bottom, top, model, show_disabled_connections=T
         for m, node in enumerate(layer.nodes):
             node_position = [node.node_id, [n * h_spacing + left, layer_top - m * v_spacing]]
             nodes_possition.append(node_position)
+            if node.node_type == Node.BIAS_NODE_TYPE:
+                color = 'orange'
+            else:
+                color = 'w'
             circle = plt.Circle((n * h_spacing + left, layer_top - m * v_spacing), v_spacing / 6.,
-                        color='w', ec='k', zorder=4)
-            plt.figtext(n * h_spacing + left, layer_top - m * v_spacing, str(node.node_id), fontsize=20, transform=ax.transAxes,
+                        color=color, ec='k', zorder=4)
+            plt.figtext(n * h_spacing + left, layer_top - m * v_spacing, str(node.node_id), fontsize='xx-large', transform=ax.transAxes,
                         color="black", va="center", ha="center")
             ax.add_artist(circle)
 
@@ -80,7 +92,7 @@ def draw_neural_net(left, right, bottom, top, model, show_disabled_connections=T
                     line.set_color("blue")
                 elif show_disabled_connections:
                     line.set_color("grey")
-                line.set_linewidth(abs(connection.weight)+0.6)
+                line.set_linewidth(abs(math.tanh(connection.weight))+0.5)
                 ax.add_artist(line)
 
     fig.show()

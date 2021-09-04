@@ -5,7 +5,7 @@ from Node import Node
 
 class Model:
     def __init__(self, model_id, innovations, number_of_input_nodes, number_of_output_nodes, number_of_hidden_layers=0,
-                 number_of_hidden_nodes=0):
+                 number_of_hidden_nodes=0, bias_on_every_layer=True):
         self.model_id = model_id
         self.innovations = innovations
         self.number_of_input_nodes = number_of_input_nodes
@@ -13,21 +13,70 @@ class Model:
         self.number_of_hidden_nodes = number_of_hidden_nodes
         self.number_of_hidden_layers = number_of_hidden_layers
         self.species_id = None
+        self.bias_on_every_layer = bias_on_every_layer
+        self.__output = []
 
         self.connections = []
         self.layers = []
         self.nodes = []
 
+        self.__next_node_id = 0
+        self.__next_layer_id = 0
+        self.__next_connection_id = 0
+
         self.initialize_model()
 
+    def feed_forward(self, input_data):
+        if self.number_of_input_nodes != len(input_data):
+            return None
+
+        self.load_input_data(input_data)
+
+        for layer in self.layers:
+            if layer.layer_id == 0:
+                continue
+            for node in layer.nodes:
+                if node.node_type == Node.BIAS_NODE_TYPE:
+                    continue
+
+                connections = self.get_connections_by_to_node(node)
+
+                node_input_value = 0.0
+                for connection in connections:
+                    input_value = self.get_node_by_id(connection.from_node_id).output_data
+                    node_input_value += input_value * connection.weight
+                node.input_data = node_input_value
+                node.calculate_output()
+
+        self.__set_output()
+
+    def get_output(self):
+        return self.__output
+
+    def __set_output(self):
+        for layer in self.layers:
+            if layer.layer_type != Layer.OUTPUT_LAYER_TYPE:
+                continue
+            for output_node in layer.nodes:
+                self.__output.append(output_node.output_data)
+
+    def load_input_data(self, input_data):
+        loaded_data_nodes = 0
+        for input_node in self.nodes:
+            if input_node.node_type == Node.INPUT_NODE_TYPE:
+                input_node.input_data = input_node.output_data = input_data[input_node.node_id]
+                loaded_data_nodes += 1
+            if loaded_data_nodes == len(input_data):
+                break
+
     def get_latest_node_id(self):
-        return len(self.nodes)
+        return self.__next_node_id
 
     def get_latest_layer_id(self):
-        return len(self.layers)
+        return self.__next_layer_id
 
     def get_latest_connection_id(self):
-        return len(self.connections)
+        return self.__next_connection_id
 
     def get_layer_by_node(self, node):
         for layer in self.layers:
@@ -38,6 +87,13 @@ class Model:
         node_connections = []
         for connection in self.connections:
             if connection.from_node_id == node.node_id or connection.to_node_id == node.node_id:
+                node_connections.append(connection)
+        return node_connections
+
+    def get_connections_by_to_node(self, to_node):
+        node_connections = []
+        for connection in self.connections:
+            if connection.to_node_id == to_node.node_id:
                 node_connections.append(connection)
         return node_connections
 
@@ -71,12 +127,16 @@ class Model:
             for x in range(self.number_of_hidden_nodes):
                 node = Node(self.get_latest_node_id(), hidden_layer.layer_id, Node.HIDDEN_NODE_TYPE)
                 self.add_node(node, hidden_layer)
+            if self.bias_on_every_layer:
+                bias_node = Node(self.get_latest_node_id(), hidden_layer.layer_id, Node.BIAS_NODE_TYPE)
+                self.add_node(bias_node, hidden_layer)
             self.add_layer(hidden_layer)
 
         # output layers
         output_layer = Layer(self.get_latest_layer_id(), Layer.OUTPUT_LAYER_TYPE)
         for x in range(self.number_of_output_nodes):
-            node = Node(self.get_latest_node_id(), output_layer.layer_id, Node.OUTPUT_NODE_TYPE)
+            node = Node(self.get_latest_node_id(), output_layer.layer_id, Node.OUTPUT_NODE_TYPE,
+                        Node.SIGMOID_ACTIVATION_FUNCTION)
             self.add_node(node, output_layer)
         self.add_layer(output_layer)
 
@@ -98,6 +158,8 @@ class Model:
     def add_node(self, node, layer, add_connections=False):
         self.nodes.append(node)
         layer.add_node(node)
+        self.__next_node_id += 1
+
         if add_connections:
             layer_id = layer.layer_id
             previous_layer = self.get_layer_by_id(layer_id-1)
@@ -117,9 +179,11 @@ class Model:
 
     def add_connection(self, connection):
         self.connections.append(connection)
+        self.__next_connection_id += 1
 
     def add_layer(self, layer):
         self.layers.append(layer)
+        self.__next_layer_id += 1
 
     def get_connection_by_id(self, connection_id):
         for connection in self.connections:

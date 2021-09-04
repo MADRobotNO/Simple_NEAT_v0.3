@@ -20,6 +20,9 @@ class Node:
         self.output_data = 0.
         self.activation_function = activation_function
 
+        if self.node_type == self.BIAS_NODE_TYPE:
+            self.input_data = self.output_data = 1
+
     def node_type_to_string(self):
         return self.NODE_TYPES[self.node_type]
 

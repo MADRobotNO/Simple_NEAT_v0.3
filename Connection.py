@@ -14,7 +14,7 @@ class Connection:
         self.generate_new_weight()
 
     def generate_new_weight(self):
-        self.weight = random.uniform(-1.0, 1.0)
+        self.weight = random.uniform(-4.0, 4.0)
 
     def set_new_weight(self, weight):
         self.weight = weight
