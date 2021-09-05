@@ -5,7 +5,7 @@ from Model import Model
 from DrawNetwork import draw_model
 
 innovations = Innovations()
-model = Model(0, innovations, 2, 1, 1, 1, False)
+model = Model(0, innovations, 2, 1, bias_on_every_layer=False)
 
 # model.connections[1].enabled = False
 
