@@ -19,10 +19,10 @@ class Connection:
     def set_new_weight(self, weight):
         self.weight = weight
 
-    def mutate_weight_with_percentage(self, percentage):
+    def mutate_weight_with_percentage(self, percentage=0.1):
         sign_value = random.choice((-1, 1))
         mutation_value = self.weight * percentage
-        self.weight + (sign_value * mutation_value)
+        self.weight = self.weight + (sign_value * mutation_value)
 
     def __str__(self):
         return "Connection ID: " + str(self.connection_id) + ", innovation ID: " + str(self.innovation_id) \

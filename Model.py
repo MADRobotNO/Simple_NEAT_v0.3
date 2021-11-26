@@ -1,11 +1,13 @@
+import random
+
 from Connection import Connection
 from Layer import Layer
 from Node import Node
 
 
 class Model:
-    def __init__(self, model_id, innovations, number_of_input_nodes, number_of_output_nodes, number_of_hidden_layers=0,
-                 number_of_hidden_nodes=0, bias_on_every_layer=True):
+    def __init__(self, model_id, innovations, number_of_input_nodes, number_of_output_nodes, bias_on_hidden_layers,
+                 number_of_hidden_layers=0, number_of_hidden_nodes=0, bias_on_first_layer=True):
         self.model_id = model_id
         self.innovations = innovations
         self.number_of_input_nodes = number_of_input_nodes
@@ -13,7 +15,8 @@ class Model:
         self.number_of_hidden_nodes = number_of_hidden_nodes
         self.number_of_hidden_layers = number_of_hidden_layers
         self.species_id = None
-        self.bias_on_every_layer = bias_on_every_layer
+        self.bias_on_hidden_layers = bias_on_hidden_layers
+        self.bias_on_first_layer = bias_on_first_layer
         self.__output = []
 
         self.connections = []
@@ -24,7 +27,23 @@ class Model:
         self.__next_layer_id = 0
         self.__next_connection_id = 0
 
+        self.__score = 0.0
+
         self.initialize_model()
+
+    def fit_xor(self, targets):
+        for index, output in enumerate(self.__output):
+            error = abs(targets - output)
+            if error > 0.5:
+                error = 1
+            score = 1 - error
+            self.__score += score
+
+    def get_score(self):
+        return self.__score
+
+    def reset_score(self):
+        self.__score = 0.0
 
     def feed_forward(self, input_data):
         if self.number_of_input_nodes != len(input_data):
@@ -54,6 +73,7 @@ class Model:
         return self.__output
 
     def __set_output(self):
+        self.__output = []
         for layer in self.layers:
             if layer.layer_type != Layer.OUTPUT_LAYER_TYPE:
                 continue
@@ -90,16 +110,23 @@ class Model:
                 node_connections.append(connection)
         return node_connections
 
+    def get_all_active_connections_by_node(self, node):
+        node_connections = []
+        for connection in self.connections:
+            if connection.from_node_id == node.node_id or connection.to_node_id == node.node_id and connection.enabled:
+                node_connections.append(connection)
+        return node_connections
+
     def get_connections_by_to_node(self, to_node):
         node_connections = []
         for connection in self.connections:
-            if connection.to_node_id == to_node.node_id:
+            if connection.to_node_id == to_node.node_id and connection.enabled:
                 node_connections.append(connection)
         return node_connections
 
     def get_connection_by_from_to_nodes(self, from_node, to_node):
         for connection in self.connections:
-            if connection.from_node_id == from_node.node_id and connection.to_node_id == to_node.node_id:
+            if connection.from_node_id == from_node.node_id and connection.to_node_id == to_node.node_id and connection.enabled:
                 return connection
         return None
 
@@ -117,8 +144,9 @@ class Model:
         for x in range(self.number_of_input_nodes):
             node = Node(self.get_latest_node_id(), input_layer.layer_id, Node.INPUT_NODE_TYPE)
             self.add_node(node, input_layer)
-        bias_node = Node(self.get_latest_node_id(), input_layer.layer_id, Node.BIAS_NODE_TYPE)
-        self.add_node(bias_node, input_layer)
+        if self.bias_on_first_layer:
+            bias_node = Node(self.get_latest_node_id(), input_layer.layer_id, Node.BIAS_NODE_TYPE)
+            self.add_node(bias_node, input_layer)
         self.add_layer(input_layer)
 
         # hidden layers
@@ -127,7 +155,7 @@ class Model:
             for x in range(self.number_of_hidden_nodes):
                 node = Node(self.get_latest_node_id(), hidden_layer.layer_id, Node.HIDDEN_NODE_TYPE)
                 self.add_node(node, hidden_layer)
-            if self.bias_on_every_layer:
+            if self.bias_on_hidden_layers:
                 bias_node = Node(self.get_latest_node_id(), hidden_layer.layer_id, Node.BIAS_NODE_TYPE)
                 self.add_node(bias_node, hidden_layer)
             self.add_layer(hidden_layer)
@@ -177,6 +205,116 @@ class Model:
                                         node.node_id, to_node.node_id)
                 self.add_connection(connection)
 
+    def mutate_add_node(self):
+        connection = self.select_connection_to_add_node()
+        connection.enabled = False
+        old_weight = connection.weight
+        connection_to_node = self.get_node_by_id(connection.to_node_id)
+        connection_from_node = self.get_node_by_id(connection.from_node_id)
+        new_node = Node(self.get_latest_node_id(), connection_to_node.node_layer_id, Node.HIDDEN_NODE_TYPE,
+                        connection_to_node.activation_function)
+        layer = self.get_layer_by_id(connection_to_node.node_layer_id)
+        self.add_node(new_node, layer)
+        from_connection_innovation_id = self.innovations.get_innovation_id_by_in_out_node_ids(connection_from_node.
+                                                                                              node_id, new_node.node_id)
+        from_connection = Connection(self.get_latest_connection_id(), from_connection_innovation_id,
+                                     connection_from_node.node_id, new_node.node_id)
+        from_connection.weight = old_weight
+        self.add_connection(from_connection)
+        to_connection_innovation_id = self.innovations.get_innovation_id_by_in_out_node_ids(new_node.node_id,
+                                                                                            connection_to_node.node_id)
+        to_connection = Connection(self.get_latest_connection_id(), to_connection_innovation_id, new_node.node_id,
+                                   connection_to_node.node_id)
+        self.add_connection(to_connection)
+
+        self.reasign_nodes_to_layers()
+
+        # TODO: ADD LAYER CLEANING
+    def reasign_nodes_to_layers(self):
+        for node in self.nodes:
+            new_layer_id = self.get_node_layer_position(node)
+            new_layer = self.get_layer_by_id(new_layer_id)
+            if new_layer is None:
+                old_layer = self.get_layer_by_id(self.get_latest_layer_id()-1)
+                old_layer.layer_type = Layer.HIDDEN_LAYER_TYPE
+                new_layer = Layer(self.get_latest_layer_id(), Layer.OUTPUT_LAYER_TYPE)
+                self.add_layer(new_layer)
+            if node.node_layer_id != new_layer.layer_id:
+                self.move_node_to_layer(node, new_layer)
+
+    def get_node_layer_position(self, node, position=0):
+        if node.node_layer_id == 0:
+            return position
+        else:
+            connections = self.get_connections_by_to_node(node)
+            lengst_position = 0
+            for connection in connections:
+                node = self.get_node_by_id(connection.from_node_id)
+                current_position = self.get_node_layer_position(node, position + 1)
+                if current_position > lengst_position:
+                    lengst_position = current_position
+            return lengst_position
+
+    def select_connection_to_add_node(self):
+        connection = self.connections[random.randint(0, len(self.connections)-1)]
+        while not connection.enabled:
+            connection = self.connections[random.randint(0, len(self.connections)-1)]
+        return connection
+
+    def mutate_add_connection(self, max_attempts_of_finding_connection, chance_of_connection_reactivating):
+        returned_nodes = None
+        for number_of_attempts in range(max_attempts_of_finding_connection):
+            returned_nodes = self.__select_from_to_nodes(max_attempts_of_finding_connection)
+
+            if returned_nodes is None:
+                # print("Cannot select nodes")
+                return None
+
+            connection = self.get_connection_by_from_to_nodes(returned_nodes[0], returned_nodes[1])
+
+            if connection is not None:
+                if not connection.enabled and random.uniform(0., 1.) < chance_of_connection_reactivating:
+                    connection.enabled = True
+                    return None
+                else:
+                    number_of_attempts += 1
+                    continue
+            else:
+                break
+
+        from_node = returned_nodes[0]
+        to_node = returned_nodes[1]
+
+        innovation_id = self.innovations.get_innovation_id_by_in_out_node_ids(from_node.node_id, to_node.node_id)
+        new_connection = Connection(self.get_latest_connection_id(), innovation_id, from_node.node_id, to_node.node_id)
+        self.add_connection(new_connection)
+
+    def __select_from_to_nodes(self, max_attempts_of_finding_connection):
+        from_node = self.get_node_by_id(random.randint(0, len(self.nodes)-1))
+
+        while from_node.node_type == Node.OUTPUT_NODE_TYPE:
+            from_node = self.get_node_by_id(random.randint(0, len(self.nodes)-1))
+
+        to_node = self.get_node_by_id(random.randint(0, len(self.nodes)-1))
+
+        number_of_attempts = 0
+        while from_node.node_id == to_node.node_id or from_node.node_layer_id >= to_node.node_layer_id:
+            if number_of_attempts < max_attempts_of_finding_connection:
+                # print("NUMBER OF ATTEMPTS EXCEEDED 20")
+                return None
+            to_node = self.get_node_by_id(random.randint(0, len(self.nodes)-1))
+            number_of_attempts += 1
+
+        return [from_node, to_node]
+
+    def mutate_weights(self, percentage=None):
+        for connection in self.connections:
+            connection.mutate_weight_with_percentage(percentage)
+
+    def generate_new_weights(self):
+        for connection in self.connections:
+            connection.generate_new_weight()
+
     def add_connection(self, connection):
         self.connections.append(connection)
         self.__next_connection_id += 1
@@ -207,16 +345,16 @@ class Model:
         return layers_array
 
     def move_node_to_layer(self, node, layer):
-        if layer.layer_type != Layer.HIDDEN_LAYER_TYPE or node.node_type != Node.HIDDEN_NODE_TYPE:
-            return
         current_layer = self.get_layer_by_id(node.node_layer_id)
         current_layer.remove_node(node)
         layer.add_node(node)
+        node.node_layer_id = layer.layer_id
 
     def __str__(self):
         return_string = ""
         return_string += "Model ID: " + str(self.model_id) + "\n"
         return_string += "Species ID: " + str(self.species_id) + "\n"
+        return_string += "Score: " + str(self.__score) + "\n"
 
         return_string += "Nodes: \n"
         for node in self.nodes:
